@@ -1,0 +1,12 @@
+pandas
+pydantic
+python-dotenv
+streamlit
+langchain
+langchain-community
+langchain-chroma
+langchain-huggingface
+langchain-google-genai
+langgraph
+chromadb
+sentence-transformers
