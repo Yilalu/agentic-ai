@@ -5,17 +5,8 @@ from typing import List, Optional
 
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
+from .config import CHROMA_DIR, COLLECTION_NAME, EMBEDDING_MODEL_NAME 
 
-
-# ---------------------------------------------------------
-# Paths and configuration
-# ---------------------------------------------------------
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-CHROMA_DIR = BASE_DIR / "chroma_db"
-
-COLLECTION_NAME = "banking_policies"
-EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 # Categories that should match the metadata created by
@@ -29,6 +20,7 @@ ALLOWED_CATEGORIES = {
     "identity_verification",
     "general",
 }
+
 
 
 # ---------------------------------------------------------

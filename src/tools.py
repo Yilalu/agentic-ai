@@ -3,23 +3,7 @@ from typing import Any
 
 import pandas as pd
 from langchain_core.tools import tool
-
-
-# ---------------------------------------------------------
-# File paths
-# ---------------------------------------------------------
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
-
-
-CUSTOMER_FILE = DATA_DIR / "customer_data.csv"
-ACCOUNT_FILE = DATA_DIR / "account_data.csv"
-TRANSACTION_FILE = DATA_DIR / "transaction_data.csv"
-SUPPORT_CASE_FILE = DATA_DIR / "support_cases_data.csv"
-FRAUD_ALERT_FILE = DATA_DIR / "fraud_alerts_data.csv"
-FEE_REQUEST_FILE = DATA_DIR / "fee_requests_data.csv"
-
+from .config import CUSTOMER_DATA, ACCOUNT_DATA, TRANSACTIONS_DATA, SUPPORT_CASES_DATA, FRAUD_ALERTS_DATA, FEE_REQUESTS_DATA
 
 # ---------------------------------------------------------
 # Column definitions
@@ -173,7 +157,7 @@ def lookup_customer(customer_id: int) -> dict[str, Any]:
 
     try:
         customers = load_csv(
-            CUSTOMER_FILE,
+            CUSTOMER_DATA,
             CUSTOMER_COLUMNS,
         )
 
@@ -208,7 +192,7 @@ def search_customer_by_email(
 
     try:
         customers = load_csv(
-            CUSTOMER_FILE,
+            CUSTOMER_DATA,
             CUSTOMER_COLUMNS,
         )
 
@@ -252,7 +236,7 @@ def lookup_account(account_id: int) -> dict[str, Any]:
 
     try:
         accounts = load_csv(
-            ACCOUNT_FILE,
+            ACCOUNT_DATA,
             ACCOUNT_COLUMNS,
         )
 
@@ -287,7 +271,7 @@ def get_customer_accounts(
 
     try:
         accounts = load_csv(
-            ACCOUNT_FILE,
+            ACCOUNT_DATA,
             ACCOUNT_COLUMNS,
         )
 
@@ -327,7 +311,7 @@ def lookup_transaction(
 
     try:
         transactions = load_csv(
-            TRANSACTION_FILE,
+            TRANSACTIONS_DATA,
             TRANSACTION_COLUMNS,
         )
 
@@ -364,7 +348,7 @@ def get_customer_transactions(
 
     try:
         transactions = load_csv(
-            TRANSACTION_FILE,
+            TRANSACTIONS_DATA,
             TRANSACTION_COLUMNS,
         )
 
@@ -400,7 +384,7 @@ def get_account_transactions(
 
     try:
         transactions = load_csv(
-            TRANSACTION_FILE,
+            TRANSACTIONS_DATA,
             TRANSACTION_COLUMNS,
         )
 
@@ -440,7 +424,7 @@ def lookup_support_case(
 
     try:
         cases = load_csv(
-            SUPPORT_CASE_FILE,
+            SUPPORT_CASES_DATA,
             SUPPORT_CASE_COLUMNS,
         )
 
@@ -475,7 +459,7 @@ def get_customer_support_cases(
 
     try:
         cases = load_csv(
-            SUPPORT_CASE_FILE,
+            SUPPORT_CASES_DATA,
             SUPPORT_CASE_COLUMNS,
         )
 
@@ -512,7 +496,7 @@ def get_transaction_support_cases(
 
     try:
         cases = load_csv(
-            SUPPORT_CASE_FILE,
+            SUPPORT_CASES_DATA,
             SUPPORT_CASE_COLUMNS,
         )
 
@@ -546,7 +530,7 @@ def lookup_fraud_alert(
 
     try:
         alerts = load_csv(
-            FRAUD_ALERT_FILE,
+            FRAUD_ALERTS_DATA,
             FRAUD_ALERT_COLUMNS,
         )
 
@@ -581,7 +565,7 @@ def get_customer_fraud_alerts(
 
     try:
         alerts = load_csv(
-            FRAUD_ALERT_FILE,
+            FRAUD_ALERTS_DATA,
             FRAUD_ALERT_COLUMNS,
         )
 
@@ -623,7 +607,7 @@ def get_transaction_fraud_alerts(
 
     try:
         alerts = load_csv(
-            FRAUD_ALERT_FILE,
+            FRAUD_ALERTS_DATA,
             FRAUD_ALERT_COLUMNS,
         )
 
@@ -658,7 +642,7 @@ def lookup_fee_request(
 
     try:
         requests = load_csv(
-            FEE_REQUEST_FILE,
+            FEE_REQUESTS_DATA,
             FEE_REQUEST_COLUMNS,
         )
 
@@ -693,7 +677,7 @@ def get_customer_fee_requests(
 
     try:
         requests = load_csv(
-            FEE_REQUEST_FILE,
+            FEE_REQUESTS_DATA,
             FEE_REQUEST_COLUMNS,
         )
 
@@ -733,7 +717,7 @@ def get_transaction_fee_requests(
 
     try:
         requests = load_csv(
-            FEE_REQUEST_FILE,
+            FEE_REQUESTS_DATA,
             FEE_REQUEST_COLUMNS,
         )
 
@@ -771,27 +755,27 @@ def get_customer_banking_profile(
 
     try:
         customers = load_csv(
-            CUSTOMER_FILE,
+            CUSTOMER_DATA,
             CUSTOMER_COLUMNS,
         )
         accounts = load_csv(
-            ACCOUNT_FILE,
+            ACCOUNT_DATA,
             ACCOUNT_COLUMNS,
         )
         transactions = load_csv(
-            TRANSACTION_FILE,
+            TRANSACTIONS_DATA,
             TRANSACTION_COLUMNS,
         )
         support_cases = load_csv(
-            SUPPORT_CASE_FILE,
+            SUPPORT_CASES_DATA,
             SUPPORT_CASE_COLUMNS,
         )
         fraud_alerts = load_csv(
-            FRAUD_ALERT_FILE,
+            FRAUD_ALERTS_DATA,
             FRAUD_ALERT_COLUMNS,
         )
         fee_requests = load_csv(
-            FEE_REQUEST_FILE,
+            FEE_REQUESTS_DATA,
             FEE_REQUEST_COLUMNS,
         )
 
