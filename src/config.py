@@ -23,7 +23,12 @@ TRANSACTIONS_DATA = DATA_DIR / "transactions_data.csv"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
-MAX_REVISION_ATTEMPTS = int(os.getenv("MAX_REVISION_ATTEMPTS", "2"))
+
+
+MAX_REVISION_ATTEMPTS:int = 2
+MAX_CLARIFFICATIONS: int = 2
+MAX_TOOL_ATTEMPST: int = 3
+MAX_APPROVAL_LIMIT:float = 50.0 # A single authomatic path in the agent can approve refund below this amount
 
 BANK_NAME = "Everyone's Bank"
 COLLECTION_NAME = "banking_policies"
