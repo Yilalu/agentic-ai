@@ -1,0 +1,159 @@
+[
+  {
+    "action": "create_escalation",
+    "escalation_id": "ESC-60A3A507",
+    "session_id": "THREAD-1F4CD530",
+    "customer_id": "CUST-001",
+    "domain": "card",
+    "reason": "The draft was revised 2 times and still did not pass review, so the revision budget is spent.",
+    "queue": "card_operations",
+    "at": "2026-08-04T22:59:07+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "create_escalation",
+    "escalation_id": "ESC-26516DBC",
+    "session_id": "THREAD-754C0683",
+    "customer_id": "CUST-001",
+    "domain": "fraud",
+    "reason": "Fraud reports are always investigated by a person; nothing is automated.",
+    "queue": "fraud_investigations",
+    "at": "2026-08-04T23:06:27+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "request_human_approval",
+    "approval_id": "APR-A9857723",
+    "session_id": "THREAD-1D91A54A",
+    "action_type": "loan_decision",
+    "amount": 15000.0,
+    "reason": "Every credit decision is made by a loan officer, at any amount (POL-AUTH-008).",
+    "citation": "POL-LOANORIG-011",
+    "status": "pending",
+    "at": "2026-08-04T23:07:02+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "create_escalation",
+    "escalation_id": "ESC-02BAFA44",
+    "session_id": "THREAD-413F55F5",
+    "customer_id": "CUST-001",
+    "domain": "card",
+    "reason": "Automated review is unavailable, so no draft is auto-approved. Routed to a human.",
+    "queue": "card_operations",
+    "at": "2026-08-04T23:07:14+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "create_escalation",
+    "escalation_id": "ESC-011D9AF9",
+    "session_id": "THREAD-09286F99",
+    "customer_id": "CUST-002",
+    "domain": "out_of_scope",
+    "reason": "A banking request outside the card, loan, account, and fraud domains this assistant covers. No policy was retrieved, so no answer was drafted.",
+    "queue": "tier2_support",
+    "at": "2026-08-04T23:07:40+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "process_refund",
+    "refund_id": "RFD-F926796A",
+    "session_id": "THREAD-31238683",
+    "customer_id": "CUST-001",
+    "amount": 42.0,
+    "reason": "Refund of duplicate $42.00 charge",
+    "citation": "POL-CARD-002#1",
+    "at": "2026-08-04T23:07:54+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "create_escalation",
+    "escalation_id": "ESC-034778A7",
+    "session_id": "TEST-QUEUE",
+    "customer_id": "CUST-001",
+    "domain": "fraud",
+    "reason": "Unauthorized charge reported; needs an investigator.",
+    "queue": "fraud_investigations",
+    "at": "2026-08-04T23:29:39+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "create_escalation",
+    "escalation_id": "ESC-A8D531DD",
+    "session_id": "TEST-QUEUE",
+    "customer_id": "CUST-001",
+    "domain": "fraud",
+    "reason": "Unauthorized charge reported; needs an investigator.",
+    "queue": "fraud_investigations",
+    "at": "2026-08-04T23:29:39+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "create_escalation",
+    "escalation_id": "ESC-35DF964A",
+    "session_id": "TEST-QUEUE",
+    "customer_id": "CUST-001",
+    "domain": "fraud",
+    "reason": "Unauthorized charge reported; needs an investigator.",
+    "queue": "fraud_investigations",
+    "at": "2026-08-04T23:29:39+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "create_escalation",
+    "escalation_id": "ESC-03AF07A9",
+    "session_id": "TEST-QUEUE",
+    "customer_id": "CUST-001",
+    "domain": "fraud",
+    "reason": "Unauthorized charge reported; needs an investigator.",
+    "queue": "fraud_investigations",
+    "at": "2026-08-04T23:29:39+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "request_human_approval",
+    "approval_id": "APR-DE5F237A",
+    "session_id": "THREAD-CCD7E132",
+    "action_type": "reissue_card",
+    "amount": null,
+    "reason": "$0.00 is above the $50.00 automated refund limit (POL-AUTH-008).",
+    "citation": "POL-CARD-002",
+    "status": "pending",
+    "at": "2026-08-05T00:16:50+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "process_refund",
+    "refund_id": "RFD-1FE9FE7C",
+    "session_id": "THREAD-17FFD243",
+    "customer_id": "CUST-001",
+    "amount": 42.0,
+    "reason": "Initiating a review for a duplicate charge of $42.00 to correct a merchant processing error.",
+    "citation": "POL-CARDDISP-010",
+    "at": "2026-08-05T02:20:40+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "request_human_approval",
+    "approval_id": "APR-D090786A",
+    "session_id": "THREAD-A46C3887",
+    "action_type": "refund",
+    "amount": 105.0,
+    "reason": "$105.00 is above the $50.00 automated refund limit (POL-AUTH-008).",
+    "citation": "POL-FEE-003",
+    "status": "pending",
+    "at": "2026-08-05T02:39:22+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  },
+  {
+    "action": "create_escalation",
+    "escalation_id": "ESC-28250523",
+    "session_id": "THREAD-BFCD8528",
+    "customer_id": "CUST-001",
+    "domain": "fraud",
+    "reason": "Fraud reports are always investigated by a person; nothing is automated.",
+    "queue": "fraud_investigations",
+    "at": "2026-08-05T02:47:22+00:00",
+    "note": "SIMULATED: recorded locally only, no real banking system was contacted"
+  }
+]

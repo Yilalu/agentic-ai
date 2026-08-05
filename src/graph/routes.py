@@ -5,9 +5,9 @@ pure function of state, so any route the graph took can be replayed and
 explained from the state alone.
 """
 
-from .config import MAX_CLARIFFICATIONS, MAX_TOOL_ATTEMPST, MAX_REVISION_ATTEMPTS, MAX_APPROVAL_LIMIT
-from .schemas import Domain, Verdict
-from .state import ChatState
+from src.config import MAX_CLARIFFICATIONS, MAX_REVISION_ATTEMPTS, MAX_APPROVAL_LIMIT
+from src.schemas import Domain, Verdict
+from src.state import ChatState
 
 
 def route_after_triage(state: ChatState) -> str:

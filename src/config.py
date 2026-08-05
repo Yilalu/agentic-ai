@@ -3,9 +3,9 @@ This file is an application configeration
 """
 
 from pathlib import Path
+import os
 
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
@@ -13,33 +13,25 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 KNOWLEDGE_BASE_DIR = PROJECT_ROOT / "policies"
 CHROMA_DIR = PROJECT_ROOT / "chroma_db"
-ACCOUNT_DATA = DATA_DIR / "account_data.csv"
-CUSTOMER_DATA = DATA_DIR / "customer_data.csv"
-FEE_REQUESTS_DATA = DATA_DIR / "fee_requests_data.csv"
-FRAUD_ALERTS_DATA = DATA_DIR / "fraud_alerts_data.csv"
-SUPPORT_CASES_DATA = DATA_DIR / "support_cases_data.csv"
-TRANSACTIONS_DATA = DATA_DIR / "transactions_data.csv"
+STORAGE_DIR = PROJECT_ROOT / "storage"
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+BANK_DB = DATA_DIR / "bank.db"
+ACTION_LOG = STORAGE_DIR / "action_log.json"
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
+EMBEDDING_MODEL_NAME = os.getenv(
+    "EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"
+)
 
-
-MAX_REVISION_ATTEMPTS:int = 2
-MAX_CLARIFFICATIONS: int = 2
+MAX_REVISION_ATTEMPTS: int = 2
+MAX_CLARIFFICATIONS: int = 3
 MAX_TOOL_ATTEMPST: int = 3
-MAX_APPROVAL_LIMIT:float = 50.0 # A single authomatic path in the agent can approve refund below this amount
+MAX_APPROVAL_LIMIT: float = 50.0  # A single authomatic path in the agent can approve refund below this amount
 
 BANK_NAME = "Everyone's Bank"
 COLLECTION_NAME = "banking_policies"
-ALLOWED_CATEGORIES = {
-    "card_dispute",
-    "fee_refund",
-    "failed_transfer",
-    "account_lockout",
-    "fraud",
-    "loan"
-    "identity_verification",
-    "general",
-}
-    
+
+FORCE_BAD_DRAFTS = 0
+FORCE_TOOL_FAILURE = ""
+FORCE_LLM_FAILURE = False
