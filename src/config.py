@@ -25,12 +25,16 @@ EMBEDDING_MODEL_NAME = os.getenv(
 )
 
 MAX_REVISION_ATTEMPTS: int = 2
-MAX_CLARIFFICATIONS: int = 3
-MAX_TOOL_ATTEMPST: int = 3
+MAX_CLARIFICATIONS: int = 3
+MAX_TOOL_ATTEMPTS: int = 3
 MAX_APPROVAL_LIMIT: float = 50.0  # A single authomatic path in the agent can approve refund below this amount
 
 BANK_NAME = "Everyone's Bank"
 COLLECTION_NAME = "banking_policies"
+
+# Chroma chunking (build_vector_db + must stay stable for a given index)
+CHUNK_SIZE = 700
+CHUNK_OVERLAP = 100
 
 FORCE_BAD_DRAFTS = 0
 FORCE_TOOL_FAILURE = ""

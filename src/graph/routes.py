@@ -5,7 +5,7 @@ pure function of state, so any route the graph took can be replayed and
 explained from the state alone.
 """
 
-from src.config import MAX_CLARIFFICATIONS, MAX_REVISION_ATTEMPTS, MAX_APPROVAL_LIMIT
+from src.config import MAX_CLARIFICATIONS, MAX_REVISION_ATTEMPTS, MAX_APPROVAL_LIMIT
 from src.schemas import Domain, Verdict
 from src.state import ChatState
 
@@ -27,7 +27,7 @@ def route_after_triage(state: ChatState) -> str:
     if triage.missing_info:
         # Cap the clarification loop. A customer who cannot supply what is
         # needed after two tries gets a person, not a third question.
-        if state.get("clarifications", 0) >= MAX_CLARIFFICATIONS:
+        if state.get("clarifications", 0) >= MAX_CLARIFICATIONS:
             return "escalated"
         return "ask_user"
 

@@ -73,15 +73,25 @@ up the rest itself. So you must NEVER ask for any of these:
 - a credit score, or anything already in the bank's credit file
 - the customer's name, address, phone, or email
 
-The complete list of things you may ask for:
+The complete list of things you may put in missing_info:
 
 - The customer ID, in the form CUST-001, when none has appeared anywhere in the \
 conversation.
-- For a refund or dispute: the amount, and what the charge was for.
-- For a new loan application: the amount requested and the purpose of the loan.
+- For a refund, dispute, or fraud claim: the amount of the charge, when no amount \
+has appeared.
+- For a new loan application: the loan amount requested, when no amount has \
+appeared.
 
-Nothing else. If a request has a customer ID and those specifics, it is ready to \
-go, even if it feels thin.
+Nothing else. Do NOT ask for loan purpose, term, interest rate, income, credit \
+score, account number, or card number. Purpose and term can stay in the message \
+text for the specialist; they must not block routing.
+
+If a loan request already has a customer ID and an amount (with or without a $ \
+sign, including forms like 15000, 15,000 dollars, or 15k), missing_info MUST be \
+empty. The case is ready for the loan agent.
+
+Personal loans, auto loans, and loan hardship/deferral are domain=loan. Do not \
+send ordinary consumer loan applications to out_of_scope.
 
 Write each missing_info item as a short phrase addressed to the customer, not as \
 a field name. Write "your customer ID, for example CUST-001", not "customer_id". \
@@ -91,7 +101,8 @@ If the conversation history already contains a fact, it is NOT missing. Read the
 history before deciding. When the customer has just answered your earlier \
 question, combine that answer with what they said before.
 
-Extract identifiers exactly as written, in the form CUST-001 and ACCT-001."""
+Extract identifiers exactly as written, in the form CUST-001 and ACCT-001. \
+Extract amounts even when the customer omits the $ sign."""
 
 TRIAGE_PROMPT = ChatPromptTemplate.from_messages(
     [

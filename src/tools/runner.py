@@ -12,7 +12,7 @@ from typing import Any
 from langchain_core.tools import BaseTool
 
 import src.config as config
-from src.config import MAX_TOOL_ATTEMPST
+from src.config import MAX_TOOL_ATTEMPTS
 from src.schemas import ToolCall
 from src.tools.readonly import ToolError
 
@@ -35,7 +35,7 @@ def call_tool(tool: BaseTool, args: dict, *, attempts: int | None = None) -> tup
     without that data or must degrade.
     """
 
-    max_attempts = attempts or MAX_TOOL_ATTEMPST
+    max_attempts = attempts or MAX_TOOL_ATTEMPTS
 
     forced = config.FORCE_TOOL_FAILURE.strip()
     if forced and forced == tool.name:

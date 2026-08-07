@@ -16,21 +16,40 @@ from src.schemas import Domain, TriageResult
 CUSTOMER_ID = re.compile(r"\bCUST[-\s]?(\d{3,4})\b", re.IGNORECASE)
 ACCOUNT_ID = re.compile(r"\bACCT[-\s]?(\d{3,4})\b", re.IGNORECASE)
 LAST_FOUR = re.compile(r"(?:ending(?:\s+in)?|last\s*(?:four|4))\D{0,6}(\d{4})", re.IGNORECASE)
-AMOUNT = re.compile(r"\$\s?([\d,]+(?:\.\d{1,2})?)")
+
+# Prefer currency forms; also accept bare figures next to loan/charge language.
+# "15000" without "$" used to leave amount empty and trap loans in ask_user.
+AMOUNT = re.compile(r"\$\s*([\d,]+(?:\.\d{1,2})?)")
+_AMOUNT_DOLLARS = re.compile(
+    r"\b([\d,]+(?:\.\d{1,2})?)\s*(?:dollars|usd)\b", re.IGNORECASE
+)
+_AMOUNT_K = re.compile(r"\b(\d+(?:\.\d+)?)\s*k\b", re.IGNORECASE)
+_AMOUNT_CONTEXT = re.compile(
+    r"(?:loan|borrow|refund|charge|charged|billed|amount|for|of|a)\s+"
+    r"(?:of\s+|a\s+|for\s+|about\s+|around\s+)?"
+    r"([\d,]+(?:\.\d{1,2})?)\b",
+    re.IGNORECASE,
+)
+_AMOUNT_BEFORE_LOAN = re.compile(
+    r"\b([\d,]+(?:\.\d{1,2})?)\s+(?:personal\s+|auto\s+|home\s+)?(?:loan|refund)\b",
+    re.IGNORECASE,
+)
 
 _KEYWORDS: list[tuple[Domain, tuple[str, ...]]] = [
     (Domain.FRAUD,
      ("fraud", "unauthorized", "didn't make", "did not make", "never made",
       "don't recognize", "do not recognize", "never authorized",
-      "didn't authorize", "never shopped", "scam", "stolen", "someone took",
-      "shouldn't be there", "hacked", "someone else")),
+      "didn't authorize", "never shopped", "scam", "someone took",
+      "shouldn't be there", "hacked", "someone else", "didn't buy",
+      "did not buy", "never bought", "not my purchase")),
     (Domain.LOAN,
      ("loan", "borrow", "mortgage", "financing", "apply for", "deferral",
       "forbearance", "hardship", "credit application")),
     (Domain.CARD,
      ("duplicate", "twice", "double", "two times", "billed me", "my card",
-      "new card", "replacement card", "card fee", "expedited", "chargeback",
-      "merchant", "subscription")),
+      "new card", "replacement card", "lost my card", "lost card",
+      "stolen card", "card was stolen", "card fee", "expedited", "chargeback",
+      "merchant", "subscription", "reissue")),
     (Domain.ACCOUNT,
      ("overdraft", "maintenance fee", "log in", "login", "locked out", "password",
       "statement", "wire", "balance", "deposit")),
@@ -60,6 +79,136 @@ _UNSUPPORTED_TOPICS = (
 )
 
 
+def _combined_text(message: str, history: list[BaseMessage]) -> str:
+    return " ".join([*(str(m.content) for m in history), message])
+
+
+def _keyword_domain(text: str) -> Domain | None:
+    """First matching domain keyword, or None if nothing matches."""
+
+    lowered = text.lower()
+    for candidate, words in _KEYWORDS:
+        if any(word in lowered for word in words):
+            return candidate
+    return None
+
+
+def _parse_amounts(text: str) -> list[float]:
+    """Extract money-like amounts from free text."""
+
+    found: list[float] = []
+
+    def add(raw: str, *, thousands: bool = False) -> None:
+        try:
+            value = float(raw.replace(",", ""))
+        except ValueError:
+            return
+        if thousands:
+            value *= 1000
+        if value > 0:
+            found.append(value)
+
+    for match in AMOUNT.findall(text):
+        add(match)
+    for match in _AMOUNT_DOLLARS.findall(text):
+        add(match)
+    for match in _AMOUNT_K.findall(text):
+        add(match, thousands=True)
+    for match in _AMOUNT_CONTEXT.findall(text):
+        add(match)
+    for match in _AMOUNT_BEFORE_LOAN.findall(text):
+        add(match)
+
+    if not found:
+        return []
+
+    # Prefer a real money figure over a small term like "5 years".
+    significant = [value for value in found if value >= 50]
+    return significant or found
+
+
+def _fill_identifiers(result: TriageResult, combined: str) -> TriageResult:
+    """Pull ids and amounts the model dropped from the conversation text."""
+
+    if not result.customer_id:
+        match = CUSTOMER_ID.search(combined)
+        if match:
+            result.customer_id = f"CUST-{match.group(1)}"
+    if not result.account_id:
+        match = ACCOUNT_ID.search(combined)
+        if match:
+            result.account_id = f"ACCT-{match.group(1)}"
+    if not result.card_last_four:
+        match = LAST_FOUR.search(combined)
+        if match:
+            result.card_last_four = match.group(1)
+    if result.amount is None:
+        amounts = _parse_amounts(combined)
+        if amounts:
+            result.amount = max(amounts)
+    return result
+
+
+def _required_missing(result: TriageResult) -> list[str]:
+    """Application-owned questions. The model may omit these; the graph must not."""
+
+    if result.domain is Domain.OUT_OF_SCOPE:
+        return []
+
+    missing: list[str] = []
+    if not result.customer_id:
+        missing.append("your customer ID, for example CUST-001")
+    if result.domain in {Domain.CARD, Domain.FRAUD} and result.amount is None:
+        missing.append("the amount of the charge in question")
+    if result.domain is Domain.LOAN and result.amount is None:
+        missing.append("the loan amount you are requesting")
+    return missing
+
+
+def _settle_missing_info(result: TriageResult) -> TriageResult:
+    """Only application-required questions may pause the graph.
+
+    The model often keeps asking for nice-to-haves (loan purpose, term, etc.)
+    even after the customer already answered. Keeping those in missing_info
+    trapped the workflow in ask_user forever. Routing uses the hard
+    requirements only; specialists can still read purpose from the message.
+    """
+
+    if result.domain is Domain.OUT_OF_SCOPE:
+        result.missing_info = []
+        return result
+
+    result.missing_info = _required_missing(result)
+    return result
+
+
+def _settle_domain(result: TriageResult, combined: str) -> TriageResult:
+    """Prefer clear keyword signals when the model picks a conflicting domain."""
+
+    if result.domain is Domain.OUT_OF_SCOPE:
+        return result
+
+    hinted = _keyword_domain(combined)
+    if hinted is None or hinted is result.domain:
+        return result
+
+    # Only override when the keyword family is a strong, higher-priority signal.
+    priority = {
+        Domain.FRAUD: 4,
+        Domain.LOAN: 3,
+        Domain.CARD: 2,
+        Domain.ACCOUNT: 1,
+        Domain.OUT_OF_SCOPE: 0,
+    }
+    if priority[hinted] > priority.get(result.domain, 0):
+        result.reasoning = (
+            f"{result.reasoning} Domain corrected from {result.domain.value} to "
+            f"{hinted.value} by keyword signal."
+        ).strip()
+        result.domain = hinted
+    return result
+
+
 def _heuristic(message: str, history: list[BaseMessage]) -> TriageResult:
     """Deterministic classifier used when the chat model is unavailable.
 
@@ -69,10 +218,9 @@ def _heuristic(message: str, history: list[BaseMessage]) -> TriageResult:
     off-topic question into a confidently wrong answer.
     """
 
-    combined = " ".join([*(str(m.content) for m in history), message])
+    combined = _combined_text(message, history)
     text = combined.lower()
 
-    # out of scope.
     def out_of_scope(bank_related: bool, why: str) -> TriageResult:
         return TriageResult(
             domain=Domain.OUT_OF_SCOPE,
@@ -88,35 +236,16 @@ def _heuristic(message: str, history: list[BaseMessage]) -> TriageResult:
     if not any(term in text for term in _BANKING_VOCABULARY):
         return out_of_scope(False, "nothing in the message reads as a banking request")
 
-    domain = Domain.ACCOUNT
-    for candidate, words in _KEYWORDS:
-        if any(word in text for word in words):
-            domain = candidate
-            break
+    domain = _keyword_domain(combined) or Domain.ACCOUNT
 
-    amounts = [float(m.replace(",", "")) for m in AMOUNT.findall(combined)]
-    customer = CUSTOMER_ID.search(combined)
-    account = ACCOUNT_ID.search(combined)
-    card = LAST_FOUR.search(combined)
-
-    missing: list[str] = []
-    if not customer:
-        missing.append("your customer ID, for example CUST-001")
-    if domain in {Domain.CARD, Domain.FRAUD} and not amounts:
-        missing.append("the amount of the charge in question")
-    if domain is Domain.LOAN and not amounts:
-        missing.append("the loan amount you're requesting and what it's for")
-
-    return TriageResult(
+    result = TriageResult(
         domain=domain,
         intent=message.strip()[:180],
-        customer_id=f"CUST-{customer.group(1)}" if customer else None,
-        account_id=f"ACCT-{account.group(1)}" if account else None,
-        card_last_four=card.group(1) if card else None,
-        amount=max(amounts) if amounts else None,
-        missing_info=missing,
+        missing_info=[],
         reasoning="Keyword classifier used because the chat model was unavailable.",
     )
+    result = _fill_identifiers(result, combined)
+    return _settle_missing_info(result)
 
 
 def format_history(messages: list[BaseMessage], limit: int = 8) -> str:
@@ -140,6 +269,7 @@ def run_triage(
     """
 
     history = history or []
+    combined = _combined_text(message, history)
 
     try:
         result = invoke_structured(
@@ -148,20 +278,11 @@ def run_triage(
     except LLMUnavailable as exc:
         return _heuristic(message, history), str(exc)
 
-    # Identifiers are also pulled with a regex across the whole conversation. A
-    # model that drops an id the customer gave two turns ago would send the case
-    # back to the ask-user loop for no reason.
-    combined = " ".join([*(str(m.content) for m in history), message])
-    if not result.customer_id:
-        match = CUSTOMER_ID.search(combined)
-        if match:
-            result.customer_id = f"CUST-{match.group(1)}"
-    if not result.account_id:
-        match = ACCOUNT_ID.search(combined)
-        if match:
-            result.account_id = f"ACCT-{match.group(1)}"
-
-    result.missing_info = _prune_questions(result.missing_info, result.customer_id)
+    # Identifiers, domain, and missing_info are settled in application code so
+    # a model omission cannot skip ask_user or send the case to the wrong agent.
+    result = _fill_identifiers(result, combined)
+    result = _settle_domain(result, combined)
+    result = _settle_missing_info(result)
     return result, None
 
 

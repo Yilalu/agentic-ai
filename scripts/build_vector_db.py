@@ -8,13 +8,17 @@ from pathlib import Path
 
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-POLICY_DIR = BASE_DIR / "policies"
-CHROMA_DIR = BASE_DIR / "chroma_db"
-COLLECTION_NAME = "banking_policies"
+from src.config import (
+    CHROMA_DIR,
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
+    COLLECTION_NAME,
+    EMBEDDING_MODEL_NAME,
+    KNOWLEDGE_BASE_DIR,
+)
+from src.retriever import create_embedding_model, load_vector_store
 
 POLICY_ID_RE = re.compile(r"\*\*Policy ID:\*\*\s*([A-Z0-9-]+)", re.IGNORECASE)
 
@@ -38,9 +42,11 @@ def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
 def build_vector_database(rebuild: bool = True) -> None:
     if rebuild and CHROMA_DIR.exists():
         shutil.rmtree(CHROMA_DIR)
+        load_vector_store.cache_clear()
+        create_embedding_model.cache_clear()
 
     loader = DirectoryLoader(
-        str(POLICY_DIR),
+        str(KNOWLEDGE_BASE_DIR),
         glob="**/*.md",
         loader_cls=TextLoader,
     )
@@ -69,7 +75,9 @@ def build_vector_database(rebuild: bool = True) -> None:
         document.metadata["source_file"] = filename
         document.metadata["document_type"] = doc_type
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=700, chunk_overlap=100)
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP
+    )
     chunks = splitter.split_documents(documents)
 
     per_doc_count: dict[str, int] = {}
@@ -80,28 +88,18 @@ def build_vector_database(rebuild: bool = True) -> None:
         chunk.metadata["doc_id"] = f"{parent}#{index}"
         chunk.metadata["parent_doc_id"] = parent
 
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
-    )
-
     Chroma.from_documents(
         documents=chunks,
-        embedding=embeddings,
+        embedding=create_embedding_model(),
         persist_directory=str(CHROMA_DIR),
         collection_name=COLLECTION_NAME,
     )
 
     print(f"Stored {len(chunks)} policy chunks in ChromaDB at {CHROMA_DIR}")
+    print(f"Embedding model: {EMBEDDING_MODEL_NAME}")
     print(f"Policies indexed: {sorted(per_doc_count)}")
 
-    try:
-        from src.retriever import load_vector_store
-
-        load_vector_store.cache_clear()
-    except Exception:
-        pass
+    load_vector_store.cache_clear()
 
 
 if __name__ == "__main__":

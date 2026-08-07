@@ -39,7 +39,7 @@ def load_vector_store() -> Chroma:
     )
     if vector_store._collection.count() == 0:
         raise ValueError(
-            "The banking_policies ChromaDB collection is empty. "
+            f"The {COLLECTION_NAME} ChromaDB collection is empty. "
             "Run python -m scripts.build_vector_db again."
         )
     return vector_store

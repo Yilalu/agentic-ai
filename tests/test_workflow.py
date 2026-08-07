@@ -10,13 +10,18 @@ deterministic; the guardrails around it are.
 import pytest
 
 from src.agents.critic import DONE_CLAIMS, citation_guard
-from src.agents.triage import _heuristic, _prune_questions
+from src.agents.triage import (
+    _heuristic,
+    _prune_questions,
+    _settle_domain,
+    _settle_missing_info,
+)
 import src.config as config
 from src.config import (
     MAX_APPROVAL_LIMIT,
-    MAX_CLARIFFICATIONS,
+    MAX_CLARIFICATIONS,
     MAX_REVISION_ATTEMPTS,
-    MAX_TOOL_ATTEMPST,
+    MAX_TOOL_ATTEMPTS,
 )
 from src.graph.nodes import approval_reason
 from src.graph.routes import needs_human_approval, route_after_critic, route_after_triage
@@ -140,6 +145,55 @@ class TestApprovalBoundary:
         assert approver == "loan officer"
 
 
+    def test_pruning_cannot_skip_ask_user_when_customer_id_is_missing(self):
+        result = TriageResult(
+            domain=Domain.CARD,
+            missing_info=["your account number"],
+            reasoning="model asked for a lookup-able fact only",
+        )
+        settled = _settle_missing_info(result)
+        assert any("customer" in item.lower() for item in settled.missing_info)
+        assert route_after_triage({"triage": settled, "clarifications": 0}) == "ask_user"
+
+    def test_keyword_signal_corrects_a_weaker_domain(self):
+        result = TriageResult(
+            domain=Domain.ACCOUNT,
+            customer_id="CUST-001",
+            amount=42.0,
+            missing_info=[],
+            reasoning="model said account",
+        )
+        settled = _settle_domain(result, "Summit charged me twice for $42")
+        assert settled.domain is Domain.CARD
+
+    def test_loan_amount_without_dollar_sign_is_enough(self):
+        result = _heuristic(
+            "This is CUST-001. I'd like to apply for a 15000 personal loan "
+            "over five years to remodel my kitchen.",
+            [],
+        )
+        assert result.domain is Domain.LOAN
+        assert result.customer_id == "CUST-001"
+        assert result.amount == 15000
+        assert result.missing_info == []
+        assert route_after_triage({"triage": result, "clarifications": 0}) == "loan_agent"
+
+    def test_loan_dollars_word_and_k_suffix_parse(self):
+        assert _heuristic("CUST-001 wants a loan for 15,000 dollars", []).amount == 15000
+        assert _heuristic("CUST-001 wants a 15k personal loan", []).amount == 15000
+
+    def test_model_purpose_question_cannot_trap_a_complete_loan(self):
+        result = TriageResult(
+            domain=Domain.LOAN,
+            customer_id="CUST-001",
+            amount=15000,
+            missing_info=["the purpose of the loan", "the term in years"],
+        )
+        settled = _settle_missing_info(result)
+        assert settled.missing_info == []
+        assert route_after_triage({"triage": settled, "clarifications": 0}) == "loan_agent"
+
+
 # --------------------------------------------------------------------------
 # Routing
 # --------------------------------------------------------------------------
@@ -166,7 +220,7 @@ class TestRouteAfterTriage:
     def test_clarification_loop_terminates(self):
         state = {
             "triage": triage(missing=["your customer ID"]),
-            "clarifications": MAX_CLARIFFICATIONS,
+            "clarifications": MAX_CLARIFICATIONS,
         }
         assert route_after_triage(state) == "escalated"
 
@@ -1083,11 +1137,18 @@ class TestGraphShape:
 
         nodes = set(build_graph().get_graph().nodes)
         for expected in (
-            "intake", "triage", "ask_user", "card_agent", "loan_agent",
+            "intake", "triage", "ask_user", "wait_for_user", "card_agent", "loan_agent",
             "account_agent", "fraud_agent", "critic", "out_of_scope",
             "resolved", "human_approval", "escalated",
         ):
             assert expected in nodes
+
+    def test_missing_info_loops_through_wait_for_user_back_to_triage(self):
+        from src.graph import build_graph
+
+        edges = build_graph().get_graph().edges
+        assert any(e.source == "ask_user" and e.target == "wait_for_user" for e in edges)
+        assert any(e.source == "wait_for_user" and e.target == "triage" for e in edges)
 
     # out of scope is reachable only from triage.
     def test_out_of_scope_is_reachable_only_from_triage(self):
@@ -1288,8 +1349,8 @@ class TestConfiguration:
     # the loops are bounded.
     def test_the_loops_are_bounded(self):
         assert MAX_REVISION_ATTEMPTS >= 1
-        assert MAX_CLARIFFICATIONS >= 1
-        assert MAX_TOOL_ATTEMPST >= 1
+        assert MAX_CLARIFICATIONS >= 1
+        assert MAX_TOOL_ATTEMPTS >= 1
 
     # the automated limit is small.
     def test_the_automated_limit_is_small(self):

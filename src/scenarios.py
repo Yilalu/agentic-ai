@@ -76,12 +76,14 @@ SCENARIOS: list[Scenario] = [
         ),
         expected_outcome=Outcome.RESOLVED,
         expected_route=[
-            "intake", "triage", "ask_user", "triage", "card_agent", "critic", "resolved",
+            "intake", "triage", "ask_user", "wait_for_user", "triage",
+            "card_agent", "critic", "resolved",
         ],
         notes=(
-            "Triage finds nothing to work with, so the graph pauses at ask_user and the "
-            "turn genuinely stops. The customer's reply resumes the same thread and flows "
-            "straight back into triage, which now has enough to route normally."
+            "Triage finds nothing to work with, so the graph hits ask_user, pauses at "
+            "wait_for_user, and the turn genuinely stops. The customer's reply resumes "
+            "the same thread and flows straight back into triage, which now has enough "
+            "to route normally."
         ),
     ),
     Scenario(

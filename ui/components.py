@@ -29,6 +29,7 @@ NODES = [
     ("intake", "Intake"),
     ("triage", "Triage\nclassify + extract"),
     ("ask_user", "Ask user"),
+    ("wait_for_user", "Wait for reply"),
     ("card_agent", "Card agent\ndisputes + card fees"),
     ("loan_agent", "Loan agent\nrecommend only"),
     ("account_agent", "Account agent\naccess + deposit fees"),
@@ -45,7 +46,7 @@ NODES = [
 # ranks from a cyclic graph moves the critic in front of the agents.
 COLUMNS = [
     ["intake"],
-    ["ask_user", "triage"],
+    ["ask_user", "wait_for_user", "triage"],
     ["card_agent", "loan_agent", "account_agent", "fraud_agent", "out_of_scope"],
     ["critic"],
     ["resolved", "human_approval", "escalated"],
@@ -54,7 +55,8 @@ COLUMNS = [
 EDGES = [
     ("intake", "triage", ""), # first step 
     ("triage", "ask_user", "missing info"),
-    ("ask_user", "triage", "customer replies"),
+    ("ask_user", "wait_for_user", "pause"),
+    ("wait_for_user", "triage", "customer replies"),
     ("triage", "card_agent", ""),
     ("triage", "loan_agent", ""),
     ("triage", "account_agent", ""),
@@ -80,10 +82,10 @@ EDGES = [
 # column (triage straight to escalated). Letting either drive ranking drags the
 # terminal column left and reorders the pipeline.
 DECORATIVE_EDGES = {
-    # Ask user is a detour off triage rather than a step past it, so the pair
-    # shares a column and both arrows between them float.
+    # Clarification is a detour off triage rather than a step past it.
     ("triage", "ask_user"),
-    ("ask_user", "triage"),
+    ("ask_user", "wait_for_user"),
+    ("wait_for_user", "triage"),
     ("critic", "card_agent"),
     ("critic", "loan_agent"),
     ("critic", "account_agent"),
@@ -95,6 +97,7 @@ PALETTE = {
     "escalated": "#b3261e",
     "out_of_scope": "#5f6368",
     "ask_user": "#7a4a13",
+    "wait_for_user": "#7a4a13",
     "critic": "#4a3fbf",
     "triage": "#4a3fbf",
 }
@@ -320,7 +323,7 @@ def specialist_queue_panel() -> None:
     st.caption(
         "Cases the workflow handed to a human, newest first. Read back through the "
         "`lookup_specialist_queue` read-only tool. The queue is a local SQLite "
-        "table; no real system was contacted."
+        "table;"
     )
 
     try:

@@ -14,7 +14,7 @@ from src.agents.critic import run_critic
 from src.agents.fraud import run_fraud_agent
 from src.agents.specialists import run_account_agent, run_card_agent, run_loan_agent
 from src.agents.triage import run_triage
-from src.config import MAX_APPROVAL_LIMIT, MAX_CLARIFFICATIONS, MAX_REVISION_ATTEMPTS
+from src.config import MAX_APPROVAL_LIMIT, MAX_CLARIFICATIONS, MAX_REVISION_ATTEMPTS
 from src.retriever import retrieve
 from src.schemas import Domain, Outcome, PendingApproval, ToolCall, TraceEvent, Verdict
 from src.state import ChatState
@@ -99,16 +99,39 @@ def triage_node(state: ChatState) -> dict:
 # Ask user
 # --------------------------------------------------------------------------
 def ask_user_node(state: ChatState) -> dict:
-    """Pause the graph and ask the customer for what is missing.
+    """Compose the clarification question and mark the turn as waiting.
 
-    `interrupt` suspends execution here. The interface shows the question, the
-    customer answers, and the graph resumes at this same node with the answer,
-    then flows straight back into triage with the fuller history.
+    The pause itself happens in `wait_for_user`. Splitting these keeps ask_user
+    on the route/trace as soon as triage decides something is missing, instead
+    of hiding it behind an interrupt that has not returned yet.
     """
 
     questions = state.get("questions", []) or ["a bit more detail about your request"]
-    asked = state.get("clarifications", 0) + 1
+    prompt = (
+        "Happy to help with that. Before I can go further I need "
+        + ("a couple of details:" if len(questions) > 1 else "one detail:")
+        + "\n\n"
+        + "\n".join(f"- {question}" for question in questions)
+        + "\n\nNothing has been changed on your account."
+    )
 
+    return {
+        "messages": [AIMessage(content=prompt)],
+        "questions": questions,
+        "outcome": Outcome.AWAITING_INFO,
+        "outcome_summary": "Waiting on the customer for missing details before routing.",
+        "trace": trace(
+            "ask_user",
+            "Triage",
+            f"Asking for {len(questions)} missing detail(s). Pausing for the customer.",
+        ),
+    }
+
+
+def wait_for_user_node(state: ChatState) -> dict:
+    """Pause until the customer answers, then hand control back to triage."""
+
+    questions = state.get("questions", []) or ["a bit more detail about your request"]
     prompt = (
         "Happy to help with that. Before I can go further I need "
         + ("a couple of details:" if len(questions) > 1 else "one detail:")
@@ -118,17 +141,20 @@ def ask_user_node(state: ChatState) -> dict:
     )
 
     reply = interrupt({"type": "question", "prompt": prompt, "questions": questions})
+    asked = state.get("clarifications", 0) + 1
 
     return {
-        "messages": [AIMessage(content=prompt), HumanMessage(content=str(reply))],
+        "messages": [HumanMessage(content=str(reply))],
         "customer_message": str(reply),
         "clarifications": asked,
         "questions": [],
+        "outcome": None,
+        "outcome_summary": "",
         "trace": trace(
-            "ask_user",
+            "wait_for_user",
             "Triage",
-            f"Asked for {len(questions)} missing detail(s); customer replied. "
-            f"Clarification {asked} of {MAX_CLARIFFICATIONS}. Returning to triage.",
+            f"Customer replied. Clarification {asked} of {MAX_CLARIFICATIONS}. "
+            "Returning to triage.",
         ),
     }
 
@@ -715,10 +741,10 @@ def escalated_node(state: ChatState) -> dict:
             f"The draft was revised {MAX_REVISION_ATTEMPTS} times and still did not pass "
             "review, so the revision budget is spent."
         )
-    elif state.get("clarifications", 0) >= MAX_CLARIFFICATIONS:
+    elif state.get("clarifications", 0) >= MAX_CLARIFICATIONS:
         reason = (
             "The request is still unclear after "
-            f"{MAX_CLARIFFICATIONS} attempts to clarify it."
+            f"{MAX_CLARIFICATIONS} attempts to clarify it."
         )
     else:
         reason = "Beyond what automated support should handle."

@@ -20,6 +20,7 @@ from .nodes import (
     out_of_scope_node,
     resolved_node,
     triage_node,
+    wait_for_user_node,
 )
 from src.graph.routes import (
     route_after_critic,
@@ -62,13 +63,12 @@ def build_graph(checkpointer=None):
     """Wire the workflow.
 
     START -> intake -> triage
-      triage -> ask_user            (missing info; capped, then escalated)
+      triage -> ask_user -> wait_for_user -> triage   (missing info; then resume)
       triage -> card_agent | loan_agent | account_agent   -> critic
       triage -> fraud_agent                               -> escalated
       triage -> out_of_scope        (no agent and no policy covers it)
       out_of_scope -> escalated     (bank business, so a person can help)
       out_of_scope -> END           (nothing to do with the bank)
-      ask_user -> triage            (after the customer replies)
       critic -> resolved            (approve, refund within the limit)
       critic -> human_approval      (approve, over the limit or any loan)
       critic -> <originating agent> (revise, within the retry budget)
@@ -81,6 +81,7 @@ def build_graph(checkpointer=None):
     graph.add_node("intake", intake_node)
     graph.add_node("triage", triage_node)
     graph.add_node("ask_user", ask_user_node)
+    graph.add_node("wait_for_user", wait_for_user_node)
     graph.add_node("card_agent", card_agent_node)
     graph.add_node("loan_agent", loan_agent_node)
     graph.add_node("account_agent", account_agent_node)
@@ -116,8 +117,9 @@ def build_graph(checkpointer=None):
         {"escalated": "escalated", "end": END},
     )
 
-    # The clarification loop: the customer's answer re-enters classification.
-    graph.add_edge("ask_user", "triage")
+    # Clarification loop: ask -> pause for the answer -> triage again.
+    graph.add_edge("ask_user", "wait_for_user")
+    graph.add_edge("wait_for_user", "triage")
 
     # The three drafting specialists always hand to the critic. None of them
     # judges its own output.
@@ -169,6 +171,12 @@ def get_graph():
     """
 
     return build_graph()
+
+
+def reset_graph() -> None:
+    """Drop the cached graph after wiring changes (tests / rebuilds)."""
+
+    get_graph.cache_clear()
 
 
 def thread_config(thread_id: str) -> dict:

@@ -1,6 +1,7 @@
 """Side-effect tools. Every one of these is simulated.
 
-Writes land in the local SQLite database and in `storage/action_log.json`.
+Writes land in the local SQLite database and in the configured action log
+(`ACTION_LOG` in `src.config`).
 Nothing here touches a real banking system, and the interface labels these
 results as simulated so no one can mistake them for a completed real action.
 """

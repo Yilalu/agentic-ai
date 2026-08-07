@@ -5,9 +5,12 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from src.config import BANK_DB, DATA_DIR
 
-def setup_bank_db(db_path: str | None = None) -> None:
-    path = Path(db_path) if db_path else Path(__file__).resolve().parent.parent / "data" / "bank.db"
+
+def setup_bank_db(db_path: str | Path | None = None) -> None:
+    path = Path(db_path) if db_path else BANK_DB
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     conn = sqlite3.connect(path)

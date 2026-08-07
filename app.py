@@ -12,6 +12,7 @@ import streamlit as st
 
 import src.config as config
 from src.config import (
+    BANK_NAME,
     GEMINI_API_KEY,
     GEMINI_MODEL,
     MAX_APPROVAL_LIMIT,
@@ -95,7 +96,7 @@ def handle_decision(pending, decision: str) -> None:
 # Sidebar
 
 with st.sidebar:
-    st.markdown("### Bank Assistant")
+    st.markdown(f"### {BANK_NAME} Assistant")
     st.caption("Multi-agent support workflow")
 
     if GEMINI_API_KEY:
@@ -154,7 +155,7 @@ with st.sidebar:
 
 # Header
 
-st.title(" Bank Assistant Agent")
+st.title(f"{BANK_NAME} Assistant Agent")
 st.caption(
     "Triage classifies and routes · a domain specialist retrieves policy and drafts · "
     "a critic validates · consequential actions stop for a person. "
@@ -191,11 +192,7 @@ if message:
 
 # Conversation
 
-if not st.session_state.turns:
-    st.info(
-        "Start by describing a problem, or pick a scenario from the sidebar.\n\n"
-        "Try: *\"I'm CUST-001 and Summit Outdoors charged me $42.00 twice on July 29.\"*"
-    )
+
 
 for index, turn in enumerate(st.session_state.turns):
     with st.chat_message("user"):
