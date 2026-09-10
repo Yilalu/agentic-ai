@@ -27,6 +27,7 @@ DOMAIN_LABEL = {
 
 NODES = [
     ("intake", "Intake"),
+    ("case_followup", "Case follow-up\nanswer only, no new ticket"),
     ("triage", "Triage\nclassify + extract"),
     ("ask_user", "Ask user"),
     ("wait_for_user", "Wait for reply"),
@@ -46,14 +47,15 @@ NODES = [
 # ranks from a cyclic graph moves the critic in front of the agents.
 COLUMNS = [
     ["intake"],
-    ["ask_user", "wait_for_user", "triage"],
+    ["ask_user", "wait_for_user", "triage", "case_followup"],
     ["card_agent", "loan_agent", "account_agent", "fraud_agent", "out_of_scope"],
     ["critic"],
     ["resolved", "human_approval", "escalated"],
 ]
 
 EDGES = [
-    ("intake", "triage", ""), # first step 
+    ("intake", "triage", ""), # first step
+    ("intake", "case_followup", "case still open with a human"),
     ("triage", "ask_user", "missing info"),
     ("ask_user", "wait_for_user", "pause"),
     ("wait_for_user", "triage", "customer replies"),

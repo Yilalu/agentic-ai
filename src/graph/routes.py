@@ -10,6 +10,18 @@ from src.schemas import Domain, Verdict
 from src.state import ChatState
 
 
+def route_after_intake(state: ChatState) -> str:
+    """A case already parked with a human gets answered, not reopened.
+
+    `is_followup` is set by `run_turn`, before any node runs, from the
+    thread's prior snapshot — it reflects whether the last turn on this
+    thread ended in human_approval or escalated, not anything this turn's
+    message says.
+    """
+
+    return "case_followup" if state.get("is_followup") else "triage"
+
+
 def route_after_triage(state: ChatState) -> str:
     """One LLM call, then this function picks exactly one destination."""
 

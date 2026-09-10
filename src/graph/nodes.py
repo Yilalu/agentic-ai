@@ -11,6 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import interrupt
 
 from src.agents.critic import run_critic
+from src.agents.followup import run_case_followup
 from src.agents.fraud import run_fraud_agent
 from src.agents.specialists import run_account_agent, run_card_agent, run_loan_agent
 from src.agents.triage import run_triage
@@ -58,6 +59,41 @@ def intake_node(state: ChatState) -> dict:
         "messages": [HumanMessage(content=state["customer_message"])],
         "trace": trace("intake", "system", "Customer message received."),
     }
+
+
+# --------------------------------------------------------------------------
+# Case follow-up
+# --------------------------------------------------------------------------
+def case_followup_node(state: ChatState) -> dict:
+    """Answer a question about a case already parked with a human.
+
+    Reached only when `run_turn` found the thread's last turn still open
+    (human_approval or escalated) and set `is_followup`. Nothing here
+    re-triages, re-gathers evidence, or calls a side-effect tool: a person
+    already owns this case, so a second automated pass would either
+    contradict their review or open a duplicate ticket for the same problem.
+    """
+
+    reply, error = run_case_followup(
+        message=state["customer_message"],
+        history=state.get("messages", [])[:-1],
+        domain=state.get("domain", ""),
+        outcome=state.get("outcome"),
+        draft=state.get("draft"),
+        pending=state.get("pending_approval"),
+        escalation_id=state.get("escalation_id"),
+    )
+
+    update: dict = {
+        "messages": [AIMessage(content=reply)],
+        "trace": trace(
+            "case_followup", "system", "Answered a follow-up without reopening the case."
+        ),
+    }
+    if error:
+        update["degraded"] = True
+        update["errors"] = [f"case_followup: {error}"]
+    return update
 
 
 # --------------------------------------------------------------------------

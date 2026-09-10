@@ -123,8 +123,17 @@ TRIAGE_PROMPT = ChatPromptTemplate.from_messages(
 WRITING_RULES = """Writing rules for the reply:
 - Open with one sentence acknowledging the situation, then go to substance.
 - Plain language. Never quote an internal document number to the customer.
-- Never say an action is done when it needs approval. Say it has been submitted \
-for review and name who reviews it.
+- Whether a person needs to review your proposed action depends on the automated \
+limit named in the evidence:
+  - At or under that limit: nobody reviews it. Say something like "I'm processing \
+a refund of $X for you now; you should see it on your account shortly." Never say \
+it is "under review," "pending review," or being looked at by a team, system, or \
+supervisor — none of that happens here, and inventing one is worse than saying \
+nothing.
+  - Over that limit, and every loan decision: a person must sign off before \
+anything happens. Say something like "I've submitted this for review by a \
+supervisor; you'll hear back once they've made a decision." Never say it is \
+already done.
 - Never guarantee an outcome. Say what the bank will do, not what will happen.
 - Close with who acts next and when the customer will hear back.
 
@@ -349,11 +358,18 @@ Test the draft against four things, in order.
 entitlements appear in the retrieved excerpts? A claim that sounds plausible but \
 is not in the excerpts fails. Set grounded to false and name the claim.
 
-2. Authority. Does the draft state or imply that a consequential action is \
-already done? Language such as "I have refunded", "your money is back", "you're \
-approved", or "your application has been accepted" fails, even when the \
-underlying recommendation is correct. Anything above the automated refund limit, \
-and every loan decision, needs a person.
+2. Authority. Does the draft claim a consequential action is already finished, \
+guaranteed, or decided? Language such as "I have refunded", "your money is back", \
+"you're approved", or "your application has been accepted" fails, even when the \
+underlying recommendation is correct.
+
+A refund at or under the automated limit given to you is the one exception: \
+nobody reviews that case, so saying it is "being processed now" or "going \
+through" is accurate, not a violation. Reject it only if it claims the money has \
+already landed (e.g. "has been refunded", "the money is back"), not for \
+describing work that is underway. Anything over that limit, and every loan \
+decision, still needs a person — treat any "already done" or "in progress" \
+language there as a failure; those must say the request was submitted for review.
 
 3. Honesty. Does the draft guarantee an outcome the bank cannot guarantee? Does \
 it give a deadline or amount that contradicts the excerpts? Does it tell a loan \
@@ -394,6 +410,38 @@ CRITIC_PROMPT = ChatPromptTemplate.from_messages(
             "Specialist confidence: {confidence}\n\n"
             "This is review {attempt} of at most {maximum}. {budget}\n\n"
             "Review this draft.",
+        ),
+    ]
+)
+
+
+
+# Case follow-up: a question about a case that already reached a human this turn.
+CASE_FOLLOWUP_SYSTEM = """You are answering a follow-up question about a bank support \
+case that has already reached its outcome: it is either waiting on a human decision \
+or has already been handed to a human specialist. You are not drafting a new \
+resolution and you must not propose a new action — a person already owns this case, \
+so nothing here creates a new ticket or changes the decision.
+
+Answer the customer's question using only the case summary below: the domain, the \
+proposed action, the amount, why a person is involved, and the reference number. If \
+the question asks something the summary does not cover, say plainly that the \
+specialist handling the case will need to address it directly rather than guessing.
+
+Never claim the action is now completed, approved, or denied — only a person can \
+change that, and nothing in this exchange does. Never invent a new dollar amount, \
+policy, or timeline beyond what is already in the summary. Keep the existing \
+reference number and do not imply a new case was opened."""
+
+CASE_FOLLOWUP_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", CASE_FOLLOWUP_SYSTEM),
+        (
+            "human",
+            "CASE SUMMARY\n{case_summary}\n\n"
+            "CONVERSATION SO FAR\n{history}\n\n"
+            "CUSTOMER'S FOLLOW-UP\n\"\"\"\n{message}\n\"\"\"\n\n"
+            "Answer the follow-up.",
         ),
     ]
 )

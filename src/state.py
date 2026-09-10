@@ -34,6 +34,12 @@ class ChatState(TypedDict, total=False):
     domain: str
     clarifications: int
 
+    # True when this turn's message arrived while the thread's last turn was
+    # still open (human_approval or escalated). Set by `run_turn`, before any
+    # node runs, from the thread's prior snapshot rather than from anything a
+    # node could infer on its own.
+    is_followup: bool
+
     # --- Evidence ---
     customer_record: dict | None
     account_records: list[dict]
@@ -88,6 +94,7 @@ def new_turn(session_id: str, customer_message: str) -> dict:
         "customer_message": customer_message,
         "triage": None,
         "domain": "",
+        "is_followup": False,
         "customer_record": None,
         "account_records": [],
         "transactions": [],

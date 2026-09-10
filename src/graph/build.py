@@ -11,6 +11,7 @@ from .nodes import (
     account_agent_node,
     ask_user_node,
     card_agent_node,
+    case_followup_node,
     critic_node,
     escalated_node,
     fraud_agent_node,
@@ -24,6 +25,7 @@ from .nodes import (
 )
 from src.graph.routes import (
     route_after_critic,
+    route_after_intake,
     route_after_out_of_scope,
     route_after_triage,
 )
@@ -62,7 +64,10 @@ CHECKPOINTED_TYPES = [
 def build_graph(checkpointer=None):
     """Wire the workflow.
 
-    START -> intake -> triage
+    START -> intake -> triage                          (new or reopened case)
+    START -> intake -> case_followup -> END             (thread's last turn is still
+                                                          open with a human; answer
+                                                          without reopening it)
       triage -> ask_user -> wait_for_user -> triage   (missing info; then resume)
       triage -> card_agent | loan_agent | account_agent   -> critic
       triage -> fraud_agent                               -> escalated
@@ -79,6 +84,7 @@ def build_graph(checkpointer=None):
     graph = StateGraph(ChatState)
 
     graph.add_node("intake", intake_node)
+    graph.add_node("case_followup", case_followup_node)
     graph.add_node("triage", triage_node)
     graph.add_node("ask_user", ask_user_node)
     graph.add_node("wait_for_user", wait_for_user_node)
@@ -93,7 +99,16 @@ def build_graph(checkpointer=None):
     graph.add_node("escalated", escalated_node)
 
     graph.add_edge(START, "intake")
-    graph.add_edge("intake", "triage")
+
+    # A message on a thread whose last turn is still open with a human
+    # (pending_approval or escalated) is a follow-up on that same case, not a
+    # new one to triage from scratch.
+    graph.add_conditional_edges(
+        "intake",
+        route_after_intake,
+        {"triage": "triage", "case_followup": "case_followup"},
+    )
+    graph.add_edge("case_followup", END)
 
     graph.add_conditional_edges(
         "triage",
@@ -183,18 +198,51 @@ def thread_config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}, "recursion_limit": 50}
 
 
+# Outcomes that mean a person already has the case and has not yet ruled on
+# it. A message arriving while the thread is in one of these is a follow-up
+# question, not a new complaint to triage from scratch.
+OPEN_WITH_HUMAN = {Outcome.PENDING_APPROVAL, Outcome.ESCALATED}
+
+
 def run_turn(message: str, thread_id: str | None = None, session_id: str | None = None) -> dict:
     """Run one turn to completion or to a pause.
 
     Returns the state snapshot. If the graph paused to ask a question, the
     snapshot carries `__interrupt__`; call `resume_turn` with the answer.
+
+    Before building the fresh per-turn state, this checks whether the
+    thread's last turn is still open with a human. If so, the case context
+    (draft, sources, domain, triage, the pending approval or escalation id)
+    is carried forward instead of being reset, and `is_followup` routes the
+    turn to `case_followup` instead of back through triage — otherwise every
+    follow-up question re-triages, re-drafts, and mints a new ticket for what
+    is actually the same case.
     """
 
     thread = thread_id or f"THREAD-{uuid.uuid4().hex[:8].upper()}"
     graph = get_graph()
-    return graph.invoke(
-        new_turn(session_id or thread, message), config=thread_config(thread)
-    )
+
+    prior = snapshot(thread)
+    turn_input = new_turn(session_id or thread, message)
+
+    if prior and prior.get("outcome") in OPEN_WITH_HUMAN:
+        turn_input["is_followup"] = True
+        for field in (
+            "outcome",
+            "outcome_summary",
+            "pending_approval",
+            "escalation_id",
+            "ticket_id",
+            "draft",
+            "critique",
+            "sources",
+            "domain",
+            "triage",
+        ):
+            if field in prior:
+                turn_input[field] = prior[field]
+
+    return graph.invoke(turn_input, config=thread_config(thread))
 
 
 def resume_turn(answer: str, thread_id: str) -> dict:
@@ -210,6 +258,45 @@ def snapshot(thread_id: str) -> dict:
 
     state = get_graph().get_state(thread_config(thread_id))
     return dict(state.values) if state and state.values else {}
+
+
+def record_human_decision(thread_id: str, approved: bool) -> dict:
+    """Persist a human's approve/reject decision into the graph's own state.
+
+    The approval card in the interface only updates its own local copy of
+    `pending_approval`. Without also writing the decision back into the
+    checkpoint, the graph's state still reads outcome=pending_approval
+    forever, so `run_turn` would keep treating the thread as open and route
+    every later message to `case_followup` instead of letting a genuinely new
+    request through.
+    """
+
+    state = snapshot(thread_id)
+    pending = state.get("pending_approval")
+    if not pending:
+        return {}
+
+    updated = pending.model_copy(update={"status": "approved" if approved else "rejected"})
+    amount = f"of ${updated.amount:,.2f} " if updated.amount is not None else ""
+
+    if approved:
+        values = {
+            "pending_approval": updated,
+            "outcome": Outcome.RESOLVED,
+            "outcome_summary": (
+                f"Approved by a human. '{updated.action_type}' {amount}"
+                "would now be processed. Simulated."
+            ),
+        }
+    else:
+        values = {
+            "pending_approval": updated,
+            "outcome": Outcome.ESCALATED,
+            "outcome_summary": f"Rejected by a human. '{updated.action_type}' will not proceed.",
+        }
+
+    get_graph().update_state(thread_config(thread_id), values)
+    return values
 
 
 def pending_question(result: dict) -> str | None:

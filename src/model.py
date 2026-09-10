@@ -61,3 +61,42 @@ def invoke_structured(prompt: ChatPromptTemplate, schema: type[T], inputs: dict)
     if not isinstance(result, schema):
         raise LLMUnavailable(f"unexpected model result: {type(result)!r}")
     return result
+
+
+def _as_text(content: object) -> str:
+    """Normalize a chat model's `.content`.
+
+    Some models return a plain string; others return a list of content
+    blocks (e.g. `[{"type": "text", "text": "..."}]`) even for plain text
+    replies. Blindly `str()`-ing the latter would print the list's Python
+    repr, braces and all, straight to the customer.
+    """
+
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and "text" in block:
+                parts.append(str(block["text"]))
+        return "".join(parts) if parts else str(content)
+    return str(content)
+
+
+def invoke_text(prompt: ChatPromptTemplate, inputs: dict) -> str:
+    """Plain-text model call, for roles that don't need a structured schema."""
+
+    if config.FORCE_LLM_FAILURE:
+        raise LLMUnavailable("injected failure via FORCE_LLM_FAILURE")
+    if not GEMINI_API_KEY:
+        raise LLMUnavailable("GEMINI_API_KEY is not set")
+    try:
+        result = (prompt | create_model()).invoke(inputs)
+    except LLMUnavailable:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise LLMUnavailable(str(exc)) from exc
+
+    return _as_text(result.content)

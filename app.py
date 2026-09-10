@@ -18,7 +18,13 @@ from src.config import (
     MAX_APPROVAL_LIMIT,
     MAX_REVISION_ATTEMPTS,
 )
-from src.graph import pending_question, resume_turn, run_turn, snapshot
+from src.graph import (
+    pending_question,
+    record_human_decision,
+    resume_turn,
+    run_turn,
+    snapshot,
+)
 from src.retriever import collection_size
 from src.scenarios import SCENARIOS
 from src.schemas import Outcome
@@ -86,6 +92,7 @@ def handle_decision(pending, decision: str) -> None:
             "note": f"{decision} from the support console",
         }
     )
+    record_human_decision(st.session_state.thread_id, decision == "approved")
     pending.status = decision
     st.session_state.decisions = st.session_state.get("decisions", {})
     st.session_state.decisions[pending.approval_id] = decision
